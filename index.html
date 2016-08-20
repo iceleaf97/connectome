@@ -3,11 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>connectome</title>
+    <script src="js/three.min.js"></script>
+    <script src="js/OrbitControls.js"></script>
+    <script src="js/MTLLoader.js"></script>
+    <script src="js/OBJLoader.js"></script>
 </head>
 <body>
-<script src="js/three.min.js"></script>
-
-<div id="info">PointCloud with Custom, Dynamic Attribute</div>
 
 <script type="x-shader/x-vertex" id="vertexshader">
 
@@ -21,7 +22,7 @@
 
         vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
 
-        gl_PointSize = 8.0;
+        gl_PointSize = 4.0;
 
         gl_Position = projectionMatrix * mvPosition;
 
@@ -42,10 +43,45 @@
     }
 
 </script>
+<script type="x-shader/x-vertex" id="vertexshader2">
+
+    attribute float alpha;
+
+    varying float vAlpha;
+
+    void main() {
+
+        vAlpha = alpha;
+
+        vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+
+        gl_PointSize = 10.0;
+
+        gl_Position = projectionMatrix * mvPosition;
+
+    }
+
+</script>
+
+<script type="x-shader/x-fragment" id="fragmentshader2">
+
+    uniform vec3 color2;
+
+    varying float vAlpha;
+
+    void main() {
+
+        gl_FragColor = vec4( color2, vAlpha );
+
+    }
+
+</script>
 <script>
     // PointCloud with Custom, Dynamic Attribute
 
-    var renderer, scene, camera, cloud, uniforms,mesh;
+    var renderer, scene, camera, cloud, uniforms,mesh,control, ballmesh;
+    var ballObj = new THREE.Object3D();
+
 
     init();
     animate();
@@ -62,12 +98,64 @@
 
         //camera
         camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 1000 );
-        camera.position.z = 400;
-        camera.position.y = 50;
-        camera.position.x = 50;
+        camera.position.set(0,0,400);
+        control = new THREE.OrbitControls(camera, renderer.domElement);
+        control.target = new THREE.Vector3(0,0,0);
+
 
         // point cloud geometry
-        var geometry = new THREE.SphereBufferGeometry( 100, 20, 20 );
+
+
+
+    var geometry = new THREE.SphereBufferGeometry( 100, 20, 20 );
+
+
+
+        var jsonLoader = new THREE.JSONLoader();
+        jsonLoader.load('models/ball.json', addJsonToScn);
+        function addJsonToScn(geometry) {
+            var ball = new THREE.BufferGeometry().fromGeometry(geometry);
+            console.log(ball.attributes.position.count);
+            var numBallVert = ball.attributes.position.count;
+            var alphas = new Float32Array( numBallVert * 1 );
+            console.log(alphas);
+            for(var i=0; i<numBallVert;i++){
+                alphas[i]= 1;
+            }
+            console.log(alphas);
+            ball.addAttribute('alpha',new THREE.BufferAttribute(alphas,1));
+
+            uniforms2 = {
+                color2: { type:"c", value:new THREE.Color(0xff0000)},
+            };
+
+            var shaderMtl = new THREE.ShaderMaterial({
+                uniforms:       uniforms2,
+                vertexShader:   document.getElementById('vertexshader2').textContent,
+                fragmentShader: document.getElementById('fragmentshader2').textContent,
+                transparent: true
+            });
+
+            var shaderMtl2 = new THREE.ShaderMaterial({
+                uniforms:       uniforms,
+                vertexShader:   document.getElementById('vertexshader2').textContent,
+                fragmentShader: document.getElementById('fragmentshader').textContent,
+                transparent: true
+            });
+
+
+            ballmesh = new THREE.Line(ball, shaderMtl);
+            var ballPoint = new THREE.Points(ball, shaderMtl2);
+            scene.add(ballmesh);
+            scene.add(ballPoint);
+
+        }
+
+
+
+
+
+
 
         // add an attribute
         var numVertices = geometry.attributes.position.count;
@@ -101,16 +189,23 @@
 
         });
 
+
+
+
         // point cloud
         cloud = new THREE.Points( geometry, shaderMaterial );
         mesh = new THREE.Line( geometry, shaderMaterial );
         scene.add( mesh );
 
         scene.add( cloud );
-        console.log(cloud.geometry.attributes.alpha.array);
-        console.log(cloud.geometry.attributes.alpha.count);
-        console.log(cloud.geometry.attributes.position.array);
-        console.log(cloud.geometry.attributes.position.count);
+        scene.add(ballObj);
+       // console.log(cloud.geometry.attributes.alpha.array);
+       // console.log(cloud.geometry.attributes.alpha.count);
+       // console.log(cloud.geometry.attributes.position.array);
+       // console.log(cloud.geometry.attributes.position.count);
+
+
+
 
 
 
@@ -133,6 +228,8 @@
     }
 
     function animate() {
+        control.update();
+        //console.log(vertices[10]);
 
         requestAnimationFrame( animate );
 
@@ -141,13 +238,13 @@
     }
 
     function render() {
-
+/*
         var vertexPos = cloud.geometry.attributes.position.array;
         var alphas0 = cloud.geometry.attributes.alpha;
         for(var i=1; i<cloud.geometry.attributes.position.count*3; i += 3){
 
             if(vertexPos[i]>0){
-                console.log(vertexPos[i]);
+               // console.log(vertexPos[i]);
 
                 alphas0.array[(i-1)/3] *= 0.97;
                 if ( alphas0.array[(i-1)/3 ] < 0.01 ) {
@@ -157,7 +254,7 @@
             }
 
         }
-
+*/
         /*
          var alphas0 = cloud.geometry.attributes.alpha;
          var count = alphas0.count;
@@ -170,13 +267,13 @@
          }
          */
 
-        cloud.geometry.attributes.alpha.needsUpdate = true; // important!
-
+ //       cloud.geometry.attributes.alpha.needsUpdate = true; // important!
+/*
         cloud.rotation.x += 0.005;
         cloud.rotation.y += 0.005;
         mesh.rotation.x += 0.005;
         mesh.rotation.y += 0.005;
-
+*/
         renderer.render( scene, camera );
 
     }
